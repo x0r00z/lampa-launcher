@@ -1,0 +1,54 @@
+{
+  "name": "lampa-launcher",
+  "version": "1.1.2",
+  "description": "Fullscreen browser for Lampa with cookie support and disabled CORS",
+  "main": "main.js",
+  "desktopName": "com.lampa.launcher",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:windows": "electron-builder --windows"
+  },
+  "keywords": [
+    "electron",
+    "browser",
+    "lampa"
+  ],
+  "homepage": "http://x0r.n00p",
+  "author": "x0r <x0r@n0.0p> (http://x0r.n0.0p/)",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.lampa.launcher",
+    "productName": "Lampa Launcher",
+    "icon": "icon.png",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "package.json",
+      "icon.png"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network",
+      "icon": "icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon.png"
+    }
+  }
+}
