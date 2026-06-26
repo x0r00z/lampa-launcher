@@ -50,5 +50,8 @@
       ],
       "icon": "icon.png"
     }
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": true
   }
 }

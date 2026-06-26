@@ -1,4 +1,6 @@
-const { app, BrowserWindow, session, ipcMain, globalShortcut } = require('electron');
+// noinspection JSIgnoredPromiseFromCall
+
+const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -60,9 +62,6 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Configure session for persistent cookies
-  const defaultSession = session.defaultSession;
-  
   // Cookies are automatically persisted by Electron session
   
   // Disable web security (CORS) for all requests
@@ -72,16 +71,18 @@ app.whenReady().then(() => {
   createWindow();
 
   // Register F10 to open settings
-  globalShortcut.register('F10', () => {
+  const f10Registered = globalShortcut.register('F10', () => {
     if (mainWindow) {
       mainWindow.loadFile('index.html');
     }
   });
+  console.log('F10 shortcut registered:', f10Registered);
 
-  // Register F12 to quit application
-  globalShortcut.register('F12', () => {
+  // Register F8 to quit application
+  const f8Registered = globalShortcut.register('F8', () => {
     app.quit();
   });
+  console.log('F8 shortcut registered:', f8Registered);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
