@@ -1,6 +1,6 @@
 // noinspection JSIgnoredPromiseFromCall
 
-const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -15,7 +15,8 @@ function getSavedUrl() {
       return data.url || DEFAULT_URL;
     }
   } catch (error) {
-    console.error('Error reading settings:', error);
+    console.error(`Error reading settings from ${STORAGE_FILE}:`, error.message);
+    notifyRenderer('settings-error', `Failed to read settings: ${error.message}`);
   }
   return DEFAULT_URL;
 }
@@ -28,8 +29,25 @@ function saveUrl(url) {
     }
     fs.writeFileSync(STORAGE_FILE, JSON.stringify({ url }), 'utf8');
   } catch (error) {
-    console.error('Error saving settings:', error);
+    console.error(`Error saving settings to ${STORAGE_FILE}:`, error.message);
+    notifyRenderer('settings-error', `Failed to save settings: ${error.message}`);
   }
+}
+
+function notifyRenderer(channel, message) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, message);
+  }
+}
+
+function loadFileSafe(filePath) {
+  return mainWindow.loadFile(filePath).catch((err) => {
+    console.error(`Critical: failed to load fallback file "${filePath}":`, err.message);
+    dialog.showErrorBox(
+      'Lampa Launcher Error',
+      `Could not load the settings page (${filePath}).\n\n${err.message}`
+    );
+  });
 }
 
 function createWindow() {
@@ -49,15 +67,20 @@ function createWindow() {
 
   // Try to load saved URL, fallback to settings on error
   const savedUrl = getSavedUrl();
-  mainWindow.loadURL(savedUrl).catch(() => {
-    // If URL fails to load, show settings
-    mainWindow.loadFile('index.html');
+  mainWindow.loadURL(savedUrl).catch((error) => {
+    console.error(`Failed to load URL "${savedUrl}":`, error.message);
+    loadFileSafe('index.html');
   });
 
   // Handle load errors
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load URL:', errorDescription);
-    mainWindow.loadFile('index.html');
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`Failed to load URL "${validatedURL}" (code ${errorCode}): ${errorDescription}`);
+    notifyRenderer('load-error', {
+      url: validatedURL,
+      code: errorCode,
+      description: errorDescription
+    });
+    loadFileSafe('index.html');
   });
 }
 
@@ -70,19 +93,18 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  // Register F10 to open settings
-  const f10Registered = globalShortcut.register('F10', () => {
-    if (mainWindow) {
-      mainWindow.loadFile('index.html');
-    }
-  });
-  console.log('F10 shortcut registered:', f10Registered);
+  // Register keyboard shortcuts
+  const shortcuts = [
+    { key: 'F10', action: () => { if (mainWindow) loadFileSafe('index.html'); }, label: 'open settings' },
+    { key: 'F8', action: () => { app.quit(); }, label: 'quit application' }
+  ];
 
-  // Register F8 to quit application
-  const f8Registered = globalShortcut.register('F8', () => {
-    app.quit();
-  });
-  console.log('F8 shortcut registered:', f8Registered);
+  for (const { key, action, label } of shortcuts) {
+    const registered = globalShortcut.register(key, action);
+    if (!registered) {
+      console.error(`Failed to register shortcut ${key} (${label}). The key may be in use by another application.`);
+    }
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -106,10 +128,22 @@ app.on('will-quit', () => {
 
 // IPC handler to load URL
 ipcMain.on('load-url', (event, url) => {
+  if (!url || typeof url !== 'string') {
+    console.error('load-url: received invalid URL:', url);
+    notifyRenderer('load-error', { url, code: -1, description: 'Invalid URL provided' });
+    return;
+  }
+
   saveUrl(url);
   if (mainWindow) {
-    mainWindow.loadURL(url).catch(() => {
-      mainWindow.loadFile('index.html');
+    mainWindow.loadURL(url).catch((error) => {
+      console.error(`load-url: failed to load "${url}":`, error.message);
+      notifyRenderer('load-error', {
+        url,
+        code: -1,
+        description: error.message
+      });
+      loadFileSafe('index.html');
     });
   }
 });
@@ -117,7 +151,7 @@ ipcMain.on('load-url', (event, url) => {
 // IPC handler to open settings
 ipcMain.on('open-settings', () => {
   if (mainWindow) {
-    mainWindow.loadFile('index.html');
+    loadFileSafe('index.html');
   }
 });
 
