@@ -6,6 +6,8 @@
   "desktopName": "com.lampa.launcher",
   "scripts": {
     "start": "electron .",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
     "build": "electron-builder",
     "build:linux": "electron-builder --linux",
     "build:windows": "electron-builder --windows"
@@ -20,7 +22,8 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^42.5.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "jest": "^30.4.2"
   },
   "build": {
     "appId": "com.lampa.launcher",
