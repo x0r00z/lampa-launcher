@@ -182,8 +182,22 @@
       launch(url);
     }
 
+    // Validate URL protocol
+    function isAllowedUrl(urlString) {
+      try {
+        const parsed = new URL(urlString);
+        return ['http:', 'https:'].includes(parsed.protocol);
+      } catch {
+        return false;
+      }
+    }
+
     // Launch URL
     function launch(url) {
+      if (!isAllowedUrl(url)) {
+        alert('Only http:// and https:// URLs are allowed.');
+        return;
+      }
       if (window.electronAPI) {
         window.electronAPI.loadURL(url);
       }

@@ -7,6 +7,16 @@ const fs = require('fs');
 let mainWindow;
 const DEFAULT_URL = 'http://lampa.mx';
 const STORAGE_FILE = path.join(app.getPath('userData'), 'settings.json');
+const ALLOWED_PROTOCOLS = ['http:', 'https:'];
+
+function isAllowedUrl(urlString) {
+  try {
+    const parsed = new URL(urlString);
+    return ALLOWED_PROTOCOLS.includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
 
 function getSavedUrl() {
   try {
@@ -59,6 +69,21 @@ function createWindow() {
     console.error('Failed to load URL:', errorDescription);
     mainWindow.loadFile('index.html');
   });
+
+  // Restrict navigation to http/https only
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    if (!isAllowedUrl(navigationUrl)) {
+      event.preventDefault();
+    }
+  });
+
+  // Restrict new windows to http/https only
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedUrl(url)) {
+      return { action: 'allow' };
+    }
+    return { action: 'deny' };
+  });
 }
 
 app.whenReady().then(() => {
@@ -66,7 +91,6 @@ app.whenReady().then(() => {
   
   // Disable web security (CORS) for all requests
   app.commandLine.appendSwitch('disable-web-security');
-  app.commandLine.appendSwitch('allow-running-insecure-content');
 
   createWindow();
 
@@ -106,6 +130,10 @@ app.on('will-quit', () => {
 
 // IPC handler to load URL
 ipcMain.on('load-url', (event, url) => {
+  if (!isAllowedUrl(url)) {
+    console.error('Blocked URL with disallowed protocol:', url);
+    return;
+  }
   saveUrl(url);
   if (mainWindow) {
     mainWindow.loadURL(url).catch(() => {
