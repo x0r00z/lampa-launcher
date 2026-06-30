@@ -153,43 +153,42 @@
   </div>
 
   <script>
-    const DEFAULT_URL = 'http://lampa.mx';
+    let defaultUrl = 'http://lampa.mx';
 
     const urlInput = document.getElementById('url');
     const saveBtn = document.getElementById('saveBtn');
     const launchBtn = document.getElementById('launchBtn');
 
-    // Load saved URL from main process
+    function getUrlFromInput() {
+      return urlInput.value.trim() || defaultUrl;
+    }
+
     async function loadSettings() {
       try {
-        const savedUrl = await window.electronAPI.getSavedUrl();
-        urlInput.value = savedUrl || DEFAULT_URL;
+        const [savedUrl, fetchedDefault] = await Promise.all([
+          window.electronAPI.getSavedUrl(),
+          window.electronAPI.getDefaultUrl()
+        ]);
+        if (fetchedDefault) defaultUrl = fetchedDefault;
+        urlInput.value = savedUrl || defaultUrl;
       } catch (error) {
         console.error('Error loading settings:', error);
-        urlInput.value = DEFAULT_URL;
+        urlInput.value = defaultUrl;
       }
     }
 
-    // Save URL and launch
     function saveAndLaunch() {
-      const url = urlInput.value.trim() || DEFAULT_URL;
-      launch(url);
-    }
-
-    // Launch without saving
-    function launchOnly() {
-      const url = urlInput.value.trim() || DEFAULT_URL;
-      launch(url);
-    }
-
-    // Launch URL
-    function launch(url) {
       if (window.electronAPI) {
-        window.electronAPI.loadURL(url);
+        window.electronAPI.loadURL(getUrlFromInput());
       }
     }
 
-    // Event listeners
+    function launchOnly() {
+      if (window.electronAPI) {
+        window.electronAPI.launchURL(getUrlFromInput());
+      }
+    }
+
     saveBtn.addEventListener('click', saveAndLaunch);
     launchBtn.addEventListener('click', launchOnly);
     urlInput.addEventListener('keydown', (e) => {
@@ -198,7 +197,6 @@
       }
     });
 
-    // Load settings on page load
     loadSettings();
   </script>
 </body>

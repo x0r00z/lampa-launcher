@@ -3,9 +3,9 @@
 const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { DEFAULT_URL, SETTINGS_PAGE } = require('./config');
 
 let mainWindow;
-const DEFAULT_URL = 'http://lampa.mx';
 const STORAGE_FILE = path.join(app.getPath('userData'), 'settings.json');
 
 function getSavedUrl() {
@@ -32,6 +32,20 @@ function saveUrl(url) {
   }
 }
 
+function showSettings() {
+  if (mainWindow) {
+    mainWindow.loadFile(SETTINGS_PAGE);
+  }
+}
+
+function loadUrlWithFallback(url) {
+  if (mainWindow) {
+    mainWindow.loadURL(url).catch(() => {
+      showSettings();
+    });
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, 
@@ -47,38 +61,27 @@ function createWindow() {
     }
   });
 
-  // Try to load saved URL, fallback to settings on error
   const savedUrl = getSavedUrl();
-  mainWindow.loadURL(savedUrl).catch(() => {
-    // If URL fails to load, show settings
-    mainWindow.loadFile('index.html');
-  });
+  loadUrlWithFallback(savedUrl);
 
-  // Handle load errors
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Failed to load URL:', errorDescription);
-    mainWindow.loadFile('index.html');
+    showSettings();
   });
 }
 
 app.whenReady().then(() => {
-  // Cookies are automatically persisted by Electron session
-  
   // Disable web security (CORS) for all requests
   app.commandLine.appendSwitch('disable-web-security');
   app.commandLine.appendSwitch('allow-running-insecure-content');
 
   createWindow();
 
-  // Register F10 to open settings
   const f10Registered = globalShortcut.register('F10', () => {
-    if (mainWindow) {
-      mainWindow.loadFile('index.html');
-    }
+    showSettings();
   });
   console.log('F10 shortcut registered:', f10Registered);
 
-  // Register F8 to quit application
   const f8Registered = globalShortcut.register('F8', () => {
     app.quit();
   });
@@ -92,36 +95,37 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  // Unregister all shortcuts
-  globalShortcut.unregisterAll();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('will-quit', () => {
-  // Unregister all shortcuts
   globalShortcut.unregisterAll();
 });
 
-// IPC handler to load URL
+// Save URL and load it
 ipcMain.on('load-url', (event, url) => {
   saveUrl(url);
-  if (mainWindow) {
-    mainWindow.loadURL(url).catch(() => {
-      mainWindow.loadFile('index.html');
-    });
-  }
+  loadUrlWithFallback(url);
 });
 
-// IPC handler to open settings
+// Load URL without saving
+ipcMain.on('launch-url', (event, url) => {
+  loadUrlWithFallback(url);
+});
+
+// Open settings page
 ipcMain.on('open-settings', () => {
-  if (mainWindow) {
-    mainWindow.loadFile('index.html');
-  }
+  showSettings();
 });
 
-// IPC handler to get saved URL
+// Get saved URL
 ipcMain.handle('get-saved-url', () => {
   return getSavedUrl();
+});
+
+// Get default URL so the renderer doesn't need its own copy
+ipcMain.handle('get-default-url', () => {
+  return DEFAULT_URL;
 });
